@@ -1,0 +1,113 @@
+ANSIBLE - DAY -3
+
+string: Akhil
+number: 5
+Boolean: true
+
+Cities:
+ - ban
+ - dl
+ - ch
+
+places:
+  village: TT
+  mandal: MM
+
+family:
+ parents:
+   - name: Jon
+     age: 20
+   - name: Candice
+     age: 19
+children:
+   - name: snow
+     age: 3
+   - name: Dany
+     age: 2
+
+
+first-playbook.yml - To install apache, cp index.html file  and make specific permissions from control to managed and host a website
+
+
+---
+- hosts: all							[ all the servers in inventory]
+  become: true							[ root user/ sudo ]
+  tasks:
+    - name: Install Apache HTTPD
+      ansible.builtin.apt:					[module]
+        name: apache2						[package to install]
+        state: present						[install]
+        update_cache: yes
+
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:	
+        src: index.html					
+        dest: /var/www/html/index.html
+        owner: root
+        group: root
+        mode: '0644'
+
+To uninstall apache, remove index.html file  and make specific permissions from control to managed and host a website
+
+- hosts: all
+  become: true
+  tasks:
+    - name: Uninstall apache httpd
+      ansible.builtin.apt:
+         name: apache2
+	 state: absent
+	 autoremove: yes
+	 purge: yes
+    - name: Remove copied files
+      ansible.builtin.file:
+	 path: /var/www/html/index.html
+	 state: absent
+
+become: true ensures that tasks requiring elevated privileges (like package installations or modifying system files) run successfully with superuser access.
+update_cache: yes ensures that Ansible refreshes the package manager’s cache before installing software, making sure the latest available version is installed and preventing cache-related errors.
+
+In web servers like **Apache** or **Nginx**, the directory `/var/www/html` is the **default document root**. This means that any web files (HTML, CSS, JavaScript, images, etc.) stored in this directory will be served by the web server to users accessing the server's IP address or domain in a browser.
+
+### Reasons why `index.html` is sent to `/var/www/html`:
+
+1. **Default Document Root**:
+   - On most Linux distributions, the directory `/var/www/html` is the default location where Apache or Nginx looks for files to serve to users.
+   - When a user visits `http://your-server-ip/` or a domain associated with your server, Apache will look for the `index.html` file in the `/var/www/html` directory to display the home page.
+
+2. **`index.html` as the Default Web Page**:
+   - Web servers are configured to serve `index.html` as the default page when no specific file is requested in the URL.
+   - For example, if a user visits `http://your-server-ip/`, the web server will automatically load `/var/www/html/index.html` and display its contents in the browser.
+
+3. **Conventional Web Directory**:
+   - The `/var/www/html` directory is a well-established convention for storing website files on Linux-based systems. Placing your `index.html` here ensures that Apache can easily find and serve it.
+
+### In Summary:
+- **/var/www/html** is where Apache (by default) looks for web content to serve to users.
+- **index.html** is usually the home page of a website, so placing it in `/var/www/html` allows the server to serve the correct file when users access the site.
+- This setup provides a simple and standard way to host a website on an Apache server.
+
+
+By default, **Apache** web server listens on the following ports:
+
+1. **Port 80**: 
+   - This is the default port for **HTTP** (unsecured web traffic). When you access a website without specifying a port (e.g., `http://your-domain.com`), Apache serves the site on port 80.
+
+2. **Port 443**:
+   - This is the default port for **HTTPS** (secured web traffic using SSL/TLS encryption). When you access a website with SSL enabled (e.g., `https://your-domain.com`), Apache serves the site on port 443.
+
+### Configuring Apache to Listen on Other Ports:
+- Apache can be configured to listen on other ports by editing the configuration file (`/etc/apache2/ports.conf` on Ubuntu/Debian or `/etc/httpd/conf/httpd.conf` on CentOS/RHEL).
+  
+  Example:
+  ```bash
+  Listen 8080
+  ```
+
+  This would make Apache listen on port **8080** in addition to the default ports.
+
+### To summarize:
+- **Default Apache HTTP port**: 80
+- **Default Apache HTTPS port**: 443
+
+
+ansible-playbook -i inventory.ini first-playbook.yml

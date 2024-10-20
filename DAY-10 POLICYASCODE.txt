@@ -1,0 +1,49 @@
+DAY-10 POLICYASCODE:
+
+
+TASK:
+
+* mkdir polcyascod
+* pip install boto3
+* ansible-galaxy collection install amazon.aws
+* create access key with root user
+* aws configure
+* create 3 s3 buckets
+* vim s3_versioning.yml 
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ V1 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Use ansible aws document = et the result of s3 bukets
+---
+- name: s3 bucket versioning on aws 
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: list s3 buckets
+      amazon.aws.s3_bucket_info:
+      register: result
+
+    - debug:
+        var: result 
+
+    - name: Enable versioning
+      amazon.aws.s3_bucket:
+        name: "{{ item.name }}"
+        versioning: yes
+      loop: "{{ result.buckets }}"
+---
+- name: Enable s3 versioning in s3 aws
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: s3 list
+      amazon.aws.s3_bucket_info:
+      register: result
+    - debug:
+        var: result
+    - name: enable vesioning
+      amazon.aws.s3_bucket:
+        name: "{{ item.name }}
+        versioning: yes
+      loop: "{{ result.buckets }} "
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

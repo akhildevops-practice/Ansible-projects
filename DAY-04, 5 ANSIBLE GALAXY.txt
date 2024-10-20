@@ -1,0 +1,155 @@
+DAY-04, 5 ANSIBLE GALAXY
+
+* ansible-galaxy role init httpd
+we created a role called httpd
+
+* cd httpd/
+* ls
+we can see tasks, vars, templates, meta, defaults, handlers, files 
+
+open first-playbook.yaml
+- hosts: all
+  become: true
+  roles:
+    - httpd
+
+Copy the modules of tasks and paste them in tasks/main.yml
+---
+# tasks file for httpd
+    - name: Install Apache HTTPD
+      ansible.builtin.apt:
+        name: apache2
+        state: present
+        update_cache: yes
+
+    - name: Ensure the /var/www/html directory exists
+      ansible.builtin.file:
+        path: /var/www/html
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: files/index.html
+        dest: /var/www/html/index.html
+        owner: root
+        group: root
+        mode: '0644'
+
+Move index.html file to the httpd/files
+now come to the directory of inventory and playbook location run the playbook
+
+* ansible-playbook -I inventory.ini anible-playbook.yml
+We just performed the same task using ansible galaxy role
+
+Certainly! Here’s a set of scenario-based interview questions and answers related to the use of Ansible Galaxy roles, based on the task you described:
+
+### Scenario-Based Interview Questions and Answers
+
+#### 1. **What is the purpose of using Ansible Galaxy roles in the provided scenario?**
+
+**Answer:**
+The purpose of using Ansible Galaxy roles in this scenario is to organize and modularize the configuration tasks for managing Apache HTTPD. By creating a role (`httpd`), you encapsulate the tasks, variables, templates, handlers, and other components related to Apache HTTPD management into a reusable and maintainable unit. This promotes better code organization, reusability, and clarity, especially when working with larger playbooks or multiple environments.
+
+#### 2. **Explain the structure of the `httpd` role directory and its purpose.**
+
+**Answer:**
+The `httpd` role directory contains several subdirectories, each serving a specific purpose:
+- **`tasks/`**: Contains the main tasks for the role, defined in `main.yml`. This is where the actual configuration steps are specified.
+- **`vars/`**: Stores variables specific to the role. This can include default values or role-specific variables.
+- **`templates/`**: Contains Jinja2 templates that can be used to generate configuration files or other content dynamically.
+- **`meta/`**: Includes metadata about the role, such as dependencies on other roles or additional information about the role.
+- **`defaults/`**: Provides default variable values for the role. These can be overridden by variables defined elsewhere.
+- **`handlers/`**: Contains handlers that are used to respond to changes in the configuration, such as restarting a service if a configuration file changes.
+- **`files/`**: Holds static files that can be copied to the remote hosts, such as the `index.html` file in this scenario.
+
+#### 3. **Why did you move `index.html` to the `files` directory within the role?**
+
+**Answer:**
+The `files` directory within a role is specifically intended for storing static files that need to be copied to remote hosts. By placing `index.html` in the `files` directory, you ensure that Ansible can correctly locate and transfer the file as part of the role’s tasks. This approach aligns with Ansible’s convention for organizing files and enhances the modularity of the role.
+
+#### 4. **What is the significance of the `become: true` directive in the playbook?**
+
+**Answer:**
+The `become: true` directive allows the tasks within the playbook to be executed with elevated privileges (e.g., using `sudo`). This is necessary for tasks that require administrative rights, such as installing software packages or modifying system files and directories. In the context of this playbook, it ensures that the installation of Apache HTTPD and modifications to system directories (like `/var/www/html`) are performed with the appropriate permissions.
+
+#### 5. **How does the role-based approach improve the maintainability of the playbook?**
+
+**Answer:**
+The role-based approach improves maintainability by:
+- **Modularity**: Encapsulating related tasks and configurations into discrete roles makes it easier to manage and understand. Each role can be developed, tested, and maintained independently.
+- **Reusability**: Roles can be reused across different playbooks or projects, reducing redundancy and effort in writing configuration code.
+- **Scalability**: As the complexity of configurations grows, roles provide a clear structure, making it easier to extend and modify configurations without impacting other parts of the playbook.
+- **Organization**: By separating tasks, variables, and handlers into dedicated directories, roles promote a cleaner and more organized codebase.
+
+#### 6. **What would be the impact if you forgot to include the `files` directory in the role?**
+
+**Answer:**
+If the `files` directory were missing from the role, Ansible would not be able to locate the `index.html` file when attempting to copy it to the remote hosts. This would result in a failure of the `ansible.builtin.copy` task, causing the playbook to fail. The absence of required files in the `files` directory would prevent the role from performing its intended actions correctly.
+
+#### 7. **Describe how you would test the `httpd` role before deploying it to production.**
+
+**Answer:**
+To test the `httpd` role before deploying it to production, you would typically:
+- **Create a Test Environment**: Set up a staging or test environment that mirrors the production environment.
+- **Run the Playbook**: Execute the playbook with the `httpd` role in the test environment to verify that it behaves as expected.
+- **Verify Functionality**: Check that Apache HTTPD is installed correctly, the `/var/www/html` directory is created, and the `index.html` file is copied with the correct permissions and ownership.
+- **Check for Errors**: Review the output of the Ansible playbook run to ensure no errors or unexpected issues occurred.
+- **Perform Manual Checks**: Verify manually that the Apache server is running and serving the correct content from the `/var/www/html` directory.
+
+#### 8. **How would you handle dependencies between roles if your setup required additional configuration beyond Apache HTTPD?**
+
+**Answer:**
+If additional configuration or dependencies are required, you can handle them by:
+- **Using Role Dependencies**: Define dependencies in the `meta/main.yml` file of the role to specify other roles that should be executed before or after the current role.
+- **Including Multiple Roles**: List multiple roles in the playbook to ensure that all necessary configurations are applied. Each role can be independently responsible for different parts of the setup.
+- **Creating Composite Roles**: Develop higher-level roles that orchestrate the execution of multiple lower-level roles to achieve the desired configuration.
+
+By using these strategies, you ensure that all dependencies are managed effectively, and the configuration is applied in the correct order.
+
+### Summary
+
+These questions cover various aspects of using Ansible Galaxy roles, including their purpose, structure, and benefits. They also address practical considerations such as testing and managing dependencies, which are crucial for effective role-based configuration management.
+
+
+
+DAY -5 
+Create an account in ansible-galaxy using GitHub verification.
+* search for docker for ubuntu
+* ansible-galaxy role -h [ we can see the description]
+* ansible-galaxy role install walidsa3d.docker
+* ls ~/.ansible/role
+* vim docker-playbook.yml
+	---
+	- hosts: all
+	  become: true
+	  roles:
+	    - walidsa3d.docker
+
+Docker is installed using above playbook
+
+*cd httpd
+* rm -rf .git
+Create a repo in github
+* git init
+*  git add README.md
+*  git commit -m "first commit"
+*  git config --global user.email "akhilprabhu20@gmail.com"
+*  git config --global user.name "akhilprabhu20"
+*  git remote add origin https://github.com/akhildevops-practice/ansible-playbook-apache.git
+*  git remote -v
+*  git add .
+*  git commit -am "initial files"
+*  git push origin main
+*  git push -u origin main
+*  git branch
+*  git push -u origin master
+*  git remote set-url origin https://akhilprabhu20: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@github.com/akhildevops-practice/ansible-playbook-apache.git
+*  git push -u origin master
+Open ansible-galaxy and got to api's copy the token
+ ansible-galaxy import akhilprabhu20 /akhildevops-practice/ansible-playbook-apache --token ***********************
+ansible-galaxy-token ****************************************
+
+

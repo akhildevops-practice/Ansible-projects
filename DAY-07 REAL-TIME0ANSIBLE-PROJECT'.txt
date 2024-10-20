@@ -1,0 +1,237 @@
+DAY-07 REAL-TIME0ANSIBLE-PROJECT'
+
+Create three(3) EC2 instances on AWS using Ansible loops
+
+2 Instances with Ubuntu Distribution
+1 Instance with Amazon-linux Distribution
+Hint: Use connection: local on Ansible Control node.
+
+
+1. mkdir project
+2. create ce2_create.yaml, inventory.ini, vault.pass, group_vars
+3. pip install boto3
+4.ansible-galaxy collection install amazon.aws
+5. openssl rand -base64 2048 > vault.pass 
+Create an iam user with access key of application outside aws. don't give programmatic access because it will generate username and password for it. Mention access and secret keys in pass.yml. After executing we check in root user itself.
+6. ansible-vault create group_vars/all/pass.yml --vault-password-file vault.pass
+7. ansible-playbook ec2_create.yml --vault-password-file vault.pass
+
+ec2_create.yml
+++++++++++++++++++++++++
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+  - name: Create ec2 instances
+    amazon.aws.ec2_instance:
+      name: "ansible instance"
+      key_name: "ansible-user"
+      instance_type: t2.micro
+      security_group: default
+      region: ap-south-1
+      aws_access_key: "{{ec2_access_key}}"
+      aws_secret_key: "{{ec2_secret_key}}"
+      network:
+        assign_public_ip: true
+      image_id: "{{ item }}"
+    loop:
+      - "ami-0ad21ae1d0696ad58"
+      - "ami-0ad21ae1d0696ad58"
+      - "ami-025fe52e1f2dc5044"
+++++++++++++++++++++++++++++++++++++++++++++
+
+
+With these script we will get 2 instances created because the ansible is idempotent. 
+
+
+++++++++++++++++++++++++
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+  - name: Create ec2 instances
+    amazon.aws.ec2_instance:
+      name: "{{ item.name }}"
+      key_name: "ansible-user"
+      instance_type: t2.micro
+      security_group: default
+      region: ap-south-1
+      aws_access_key: "{{ec2_access_key}}"
+      aws_secret_key: "{{ec2_secret_key}}"
+      network:
+        assign_public_ip: true
+      image_id: "{{ item.image }}"
+    loop:
+      - { image: "ami-0ad21ae1d0696ad58", name: ansible-node-1 }
+      - { image: "ami-0ad21ae1d0696ad58", name: ansible-node-2 }
+      - { image: "ami-025fe52e1f2dc5044", name: ansible-node-3 }
+++++++++++++++++++++++++++++++++++++++++++++
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+  - name: Create ec2 instances
+    amazon.aws.ec2_instance:
+      name: "{{ item.name }}"
+      key_name: "ansible-user"
+      instance_type: t2.micro
+      security_group: default
+      region: ap-south-1
+      aws_access_key: "{{ec2_access_key}}"
+      aws_secret_key: "{{ec2_secret_key}}"
+      network:
+        assign_public_ip: true
+      image_id: "{{ item.image }}"
+      tags:
+	environment: "{{ item.name }}"
+    loop:
+      - { image: "ami-0ad21ae1d0696ad58", name: ansible-node-1 }
+      - { image: "ami-0ad21ae1d0696ad58", name: ansible-node-2 }
+      - { image: "ami-025fe52e1f2dc5044", name: ansible-node-3 }
+
+
+
+Task 2
+Set up passwordless authentication between Ansible control node and newly created instances.
+
+cp "/mnt/c/Users/N.AKHIL PRABHU/Downloads/ansible-prac.pem" ~/.ssh/
+chmod 600 ansible-prac.pem
+
+ssh-copy-id -f -i /home/ansiblepilot/.ssh/id_rsa.pub -o identityFile=~/.ssh/ansible-user.pem ubuntu@ip
+ssh -o 'identityFile=/home/ansiblepilot/.ssh/ansible-user.pem' 'ubuntu@ip' (for amazonlinux - ec2-user@ip)
+
+Task 3
+Automate the shutdown of Ubuntu Instances only using Ansible Conditionals
+
+Hint: Use when condition on ansible gather_facts
+
+
+Create ec2_stop.yml
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+hosts: all
+become: true
+
+tasks:
+  - name: shutdown ec2 instances of ubuntu
+    ansible.builtin.command: /sbin/shutdown -t now
+    when:
+	ansible_facts['os_family'] == 'Debian'                                [for amazon-Linux = RedHat]
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+inventory.ini
+
+++++++++++++++++++++++++++
+[all]
+ubuntu@ip
+ubuntu@ip
+ec-user@ip
++++++++++++++++++++++++++
+
+
+the above mentioned instance is conected using passwordless auth ssh ec2-user@15.207.86.2 
+ but getting this error while trying to shutdown using  yml and inventoryfatal: [ec2-user@15.207.86.2]: UNREACHABLE! => {"changed": false, "msg": "Failed to connect to the host via ssh: ubuntu@15.207.86.2: Permission denied (publickey,gssapi-keyex,gssapi-with-mic).", "unreachable": true}
+
+
+
+[servers]
+15.207.86.2 ansible_user=ec2-user ansible_ssh_private_key_file=/home/ansiblepilot/.ssh/ansible-user.pem
+
+
+
+
+
+
+
+
+
+Here's a scenario-based interview Q&A that covers the issues you might face with the given Ansible setup, along with troubleshooting and best practices.
+
+### Scenario-Based Interview Questions and Answers
+
+#### **Question 1:**
+You are attempting to create three EC2 instances using Ansible, but you only get two instances created instead of the expected three. What could be the cause of this issue, and how would you address it?
+
+**Answer:**
+The issue is likely due to the idempotency of Ansible. Ansible will not create duplicate resources if it believes they already exist. In your playbook, you’re using a loop to create EC2 instances, but since Ansible is idempotent, it might not recreate resources if it detects them already present.
+
+To resolve this:
+1. Ensure the `name` and `image_id` are unique for each instance to avoid any conflicts.
+2. Verify that the instances have not been created already by listing instances in the AWS Management Console or using the AWS CLI.
+3. Check for errors in the Ansible logs to ensure there were no issues during instance creation.
+
+#### **Question 2:**
+You’ve set up Ansible to use passwordless SSH authentication with a private key, but you are encountering a "Permission denied" error. How would you troubleshoot and resolve this issue?
+
+**Answer:**
+Here are the steps to troubleshoot and resolve the SSH authentication issue:
+1. **Check Permissions**: Ensure the private key (`ansible-prac.pem`) permissions are set to `600`. Incorrect permissions can cause SSH to reject the key.
+   ```bash
+   chmod 600 ~/.ssh/ansible-prac.pem
+   ```
+2. **Verify Key Location**: Ensure the private key is correctly specified in your Ansible configuration or command.
+3. **Correct User**: Make sure you are using the correct user for each type of instance. For Amazon Linux, it’s usually `ec2-user`, while for Ubuntu, it’s `ubuntu`.
+4. **Check SSH Configurations**: Ensure that `ssh-copy-id` was successful and that the public key is correctly installed on the instances. Check that the `authorized_keys` file on the remote host contains the public key.
+5. **Validate SSH Connection**: Test the SSH connection manually using:
+   ```bash
+   ssh -i ~/.ssh/ansible-prac.pem ubuntu@<instance-ip>
+   ```
+   If it fails, the issue might be with the key or the SSH configuration.
+
+#### **Question 3:**
+Your playbook fails with the error "Failed to connect to the host via ssh" when trying to execute a shutdown command. What could be causing this issue, and how would you fix it?
+
+**Answer:**
+This error can occur for several reasons:
+1. **SSH Key Mismatch**: Verify that the SSH key being used is the correct one for the instance. Ensure you are specifying the correct private key file in your inventory and Ansible configuration.
+2. **Incorrect SSH Configuration**: Ensure that the `inventory.ini` file correctly specifies the SSH user and private key. For example:
+   ```ini
+   [servers]
+   15.207.86.2 ansible_user=ec2-user ansible_ssh_private_key_file=/home/ansiblepilot/.ssh/ansible-user.pem
+   ```
+3. **Network Issues**: Check that there are no network connectivity issues between the Ansible control node and the EC2 instances.
+4. **Instance State**: Ensure that the instances are in a running state and accessible via SSH.
+
+#### **Question 4:**
+You need to automate the shutdown of Ubuntu instances only using Ansible. What would be the correct playbook and conditions to achieve this?
+
+**Answer:**
+To automate the shutdown of only Ubuntu instances, you can use the `ansible_facts['os_family']` to apply a conditional check. Here’s an example playbook:
+
+```yaml
+---
+- hosts: all
+  become: true
+
+  tasks:
+    - name: Shutdown Ubuntu EC2 instances
+      ansible.builtin.command: /sbin/shutdown -h now
+      when: ansible_facts['os_family'] == 'Debian'
+```
+
+Ensure that:
+1. Your inventory file correctly lists the instances with the correct SSH key and user.
+2. You have gathered facts before applying the conditional check.
+
+#### **Question 5:**
+How do you manage sensitive information like AWS credentials in your Ansible setup, and what are best practices to follow?
+
+**Answer:**
+To manage sensitive information like AWS credentials securely:
+1. **Use Ansible Vault**: Store sensitive data in encrypted files using `ansible-vault`. For example, use:
+   ```bash
+   ansible-vault create group_vars/all/pass.yml --vault-password-file vault.pass
+   ```
+   This file can include sensitive information such as AWS access and secret keys.
+
+2. **Minimize Hardcoding**: Avoid hardcoding sensitive information directly into playbooks or inventory files. Always reference encrypted variables instead.
+
+3. **Environment Variables**: Consider using environment variables to manage AWS credentials securely in CI/CD pipelines or scripts.
+
+4. **Limit IAM Permissions**: Follow the principle of least privilege for IAM roles and users, ensuring they have only the permissions necessary for the task.
+
+By following these best practices, you ensure that sensitive information is managed securely and your automation processes are robust and reliable.
+		

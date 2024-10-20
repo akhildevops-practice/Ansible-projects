@@ -1,0 +1,300 @@
++++++++++++++++++++++++++++++++++++++++++===DAY-08 ERROR HANDLING ++++++++++++++++++++++++++++++++++++++++++
+
+* In ansible we have 3 nodes and a playbook to run 100 tasks, if the 1st task is failed then remaining won't be executed this is good for one.
+* But if 1st task in  node1 fails, then node 2 also fails to overcome this we have a concept of error handling.
+
+
+1. mkdir project
+2. create ce2_create.yaml, inventory.ini, vault.pass, group_vars
+3. pip install boto3
+4.ansible-galaxy collection install amazon.aws
+5. openssl rand -base64 2048 > vault.pass 
+Create an iam user with access key of application outside aws. don't give programmatic access because it will generate username and password for it. Mention access and secret keys in pass.yml. After executing we check in root user itself.
+6. ansible-vault create group_vars/all/pass.yml --vault-password-file vault.pass
+7. ansible-playbook ec2_create.yml --vault-password-file vault.pass
+
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+  - name: Create ec2 instances
+    amazon.aws.ec2_instance:
+      name: "{{ item.name }}"
+      key_name: "ansible-user"
+      instance_type: t2.micro
+      security_group: default
+      region: ap-south-1
+      aws_access_key: "{{ec2_access_key}}"
+      aws_secret_key: "{{ec2_secret_key}}"
+      network:
+        assign_public_ip: true
+      image_id: "{{ item.image }}"
+      tags:
+	environment: "{{ item.name }}"
+    loop:
+      - { image: "ami-0ad21ae1d0696ad58", name: ansible-node-1 }
+      - { image: "ami-0ad21ae1d0696ad58", name: ansible-node-2 }
+      - { image: "ami-025fe52e1f2dc5044", name: ansible-node-3 }
+
+
+
+Task 2
+Set up passwordless authentication between Ansible control node and newly created instances.
+
+ssh-copy-id -f -i /home/ansiblepilot/.ssh/id_rsa.pub -o identityFile=~/.ssh/ansible-user.pem ubuntu@ip
+ssh -o 'identityFile=/home/ansiblepilot/.ssh/ansible-user.pem' 'ubuntu@ip' (for amazonlinux - ec2-user@ip)
+
+* vim main.yml
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+- hosts: all
+  become: true
+
+  tasks:
+    - name: Install security updates
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - openssl
+        - openssh
+      ignore_errors: yes  # Ignore errors if updates fail
+
+    - name: Install required packages for Docker installation
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg-agent
+          - software-properties-common
+        state: present
+      ignore_errors: yes  # Ignore errors if packages cannot be installed
+
+    - name: Add Docker’s official GPG key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      ignore_errors: yes  # Ignore errors if key cannot be added
+
+    - name: Set up the Docker repository
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable
+        state: present
+      ignore_errors: yes  # Ignore errors if repository setup fails
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+      ignore_errors: yes  # Ignore errors if cache update fails
+
+    - name: Check if Docker is installed
+      ansible.builtin.command: docker --version
+      register: output
+      ignore_errors: yes  # Ignore errors if Docker is not installed
+
+    - name: Debug Docker installation status
+      ansible.builtin.debug:
+        var: output
+
+    - name: Install Docker
+      ansible.builtin.apt:
+        name: docker-ce
+        state: present
+      when: output.failed  # Install Docker only if the previous check failed
+
+    - name: Ensure Docker service is running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes
+      when: output.failed  # Ensure Docker service is running only if Docker was just installed
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+
+
+
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Install latest openssh and openssl
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - openssh
+        - openssl
+      ignore_errors: yes
+
+    - name: Install required packages for Docker
+      ansible.builtin.apt:
+        name:
+          - curl
+          - gnupg-agent
+          - software-properties-common  # Corrected typo
+        state: present
+      ignore_errors: yes
+
+    - name: Download Docker installation script
+      ansible.builtin.get_url:
+        url: https://get.docker.com
+        dest: /tmp/get-docker.sh  # Updated to match the filename used in execution
+      ignore_errors: yes
+
+    - name: Execute Docker installation script
+      ansible.builtin.command:
+        cmd: /bin/bash /tmp/get-docker.sh
+      ignore_errors: yes
+
+    - name: Check if Docker is installed
+      ansible.builtin.command:
+        cmd: docker --version
+      register: docker_version
+      ignore_errors: yes
+
+    - name: Print Docker version
+      ansible.builtin.debug:
+        msg: "Docker version: {{ docker_version.stdout }}"
+      when: docker_version.rc == 0
+
+    - name: Ensure Docker service is running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes
+      when: docker_version.rc == 0
+
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This Ansible playbook is designed to manage security updates and install Docker on all specified hosts. Here’s a breakdown of each section and task:
+
+### Playbook Structure
+
+```yaml
+- hosts: all
+  become: true
+```
+
+- **hosts**: This specifies the group of hosts on which the playbook will run. In this case, it targets all hosts defined in your Ansible inventory.
+- **become: true**: This directive allows the playbook to run tasks with elevated privileges (e.g., as a superuser or root). It typically uses `sudo` to perform tasks that require administrative rights.
+
+### Tasks Breakdown
+
+#### 1. Install Security Updates
+
+```yaml
+- name: Install security updates
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: latest
+  loop:
+    - openssl
+    - openssh
+  ignore_errors: yes
+```
+
+- **name**: This is a descriptive label for the task that installs security updates for OpenSSL and OpenSSH.
+- **ansible.builtin.apt**: This module manages packages using the `apt` package manager (used by Debian and Ubuntu).
+- **name**: The name of the package to install, specified as `"{{ item }}"` to use a variable from the loop.
+- **state**: Setting this to `latest` ensures that the package will be updated to the most recent version available.
+- **loop**: This directive iterates over a list of items—in this case, `openssl` and `openssh`, installing or updating both packages.
+- **ignore_errors: yes**: This allows the playbook to continue executing even if this task fails (e.g., if a package is not available).
+
+#### 2. Check if Docker is Installed
+
+```yaml
+- name: Check if docker is installed
+  ansible.builtin.command: docker --version
+  register: output
+  ignore_errors: yes
+```
+
+- **name**: This task checks whether Docker is installed by running the `docker --version` command.
+- **ansible.builtin.command**: This module runs a command on the target host.
+- **register**: This saves the output of the command execution in a variable named `output`. This variable will contain both the command's stdout and stderr, as well as a success or failure status.
+- **ignore_errors: yes**: This allows the playbook to continue even if the command fails (for instance, if Docker is not installed).
+
+#### 3. Debug Output
+
+```yaml
+- ansible.builtin.debug:
+    var: output
+```
+
+- **ansible.builtin.debug**: This module is used to display the contents of a variable, in this case, `output`. This will help you understand whether Docker is installed and what version (if any) was returned.
+
+#### 4. Install Docker
+
+```yaml
+- name: Install docker
+  ansible.builtin.apt:
+    name: docker.io
+    state: present
+  when: output.failed
+```
+
+- **name**: This task installs Docker if it was not found in the previous step.
+- **ansible.builtin.apt**: The same package management module is used, this time specifically to install `docker.io`.
+- **state**: Setting this to `present` means the package will be installed if it’s not already present.
+- **when**: This condition checks whether the previous command to check Docker’s version failed (`output.failed`). If Docker was not found (i.e., the command failed), this task will execute to install Docker.
+
+### Summary
+
+1. The playbook installs security updates for OpenSSL and OpenSSH.
+2. It checks if Docker is already installed, ignoring errors if it is not.
+3. The output of the Docker check is displayed for debugging purposes.
+4. If Docker is not found, it installs Docker on the host.
+
+This playbook is useful for ensuring that critical packages are updated and that Docker is installed, making it a good starting point for setting up an environment that requires containerization.
+
+
+Error handling in Ansible is essential for managing tasks that may fail or produce unexpected results. In the provided playbook, error handling is addressed through the use of `ignore_errors` and conditionals. Here’s a simple explanation of how error handling is implemented in Ansible:
+
+### 1. **ignore_errors**
+
+- **Purpose**: This directive allows the playbook to continue executing subsequent tasks even if the current task fails.
+  
+- **Usage in the Playbook**:
+    ```yaml
+    ignore_errors: yes
+    ```
+  In the example, it is used in two tasks:
+  
+  - **Installing security updates**: If the installation of `openssl` or `openssh` fails (e.g., if they are not available), the playbook will not stop. It will simply continue to the next task.
+  
+  - **Checking if Docker is installed**: If the command `docker --version` fails (indicating that Docker is not installed), the playbook will still proceed to the next task instead of stopping.
+
+### 2. **Conditionals with `when`**
+
+- **Purpose**: Conditionals allow you to execute tasks based on the success or failure of previous tasks.
+  
+- **Usage in the Playbook**:
+    ```yaml
+    when: output.failed
+    ```
+  This line checks the status of the `output` variable (which captures the result of the Docker check command). If the command failed, it will trigger the installation of Docker. This ensures that Docker is only installed if it wasn’t found, preventing unnecessary installations.
+
+### 3. **Registering Variables**
+
+- **Purpose**: Registering the output of commands or tasks allows you to capture their results for later use, particularly for conditional checks.
+  
+- **Usage in the Playbook**:
+    ```yaml
+    register: output
+    ```
+  The output of the `docker --version` command is stored in the `output` variable. You can then check `output.failed` to determine if Docker was not found.
+
+### Summary of Error Handling in Ansible
+
+- **Graceful Degradation**: Use `ignore_errors` to allow the playbook to continue running despite errors in non-critical tasks.
+- **Conditional Logic**: Use `when` statements to conditionally execute tasks based on the success or failure of prior tasks, ensuring the right actions are taken depending on the state of the system.
+- **Variable Registration**: Capture the output of commands and tasks with `register` to make decisions based on their results.
+
+By implementing these error handling techniques, Ansible playbooks become more robust and capable of handling unexpected situations gracefully, leading to smoother automation processes.

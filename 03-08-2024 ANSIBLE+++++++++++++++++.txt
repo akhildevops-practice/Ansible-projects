@@ -1,0 +1,98 @@
+ 03-08-2024 ANSIBLE+++++++++++++++++++++++++++++++++++++++++++++++++++++ DAY-2
+CREATE 2 EC2 INSTANCES AND CONFIGURE ANSIBLE WSL IN LOCAL
+
+***************PASSWORD LESS AUTHENTICATION USING 🤦‍♂️ KEY :
+
+
+++++Using Public Key:
+Go to git bash and perform the below
+
+* ssh-copy-id -f "-o IdentityFile ~/Downloads/ansible.pem" ubuntu@3.109.121.8 
+* ssh -i ~/Downloads/ansible.pem ubuntu@3.109.121.8
+ssh-copy-id: Use this to set up passwordless authentication by copying your public key to the remote server.
+ssh: Use this to connect to the remote server after passwordless authentication has been established.
+
+**** We can check the passwordless authentication by going to terminal and use:
+
+** ssh ubuntu@3.109.121.8
+
+
+
+++++++++++++Using Password:
+Go to the file /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+Update PasswordAuthentication yes
+Restart SSH -> sudo systemctl restart ssh
+Create a password to ubuntu user - 12345
+after getting logged
+check the passwordless connection 
+ssh ubuntu@3.109.121.8
+
+
+[INCASE WE ARE NOT USING EC2 INSTANCE WE GO THROGH THIS PROCESS - sudo vim /etc/ssh/sshd_config
+ENABLE PASSWORD AUTHENTICATION]
+
+*sudo apt update && sudo apt install git python3 python3-dev python3-pip openssl ansible -y
+
+
+
+*** Inventory file is the file where we can write our managed nodes username, ip address, it is the heart of the ansible. It can be created either using .ini/.yaml. 
+We have 2 approaches either we can create inventory file or we can keep our nodes info in /etc/ansible/hosts. But recommended method is .ini
+
+ADHOC COMMANDS:
+
+ansible -i inventory.ini -m ping all ---- ( -i - location of our inventory file, -m module , all - all nodes in iventory)
+
+ansible -i inventory.ini -m ping 3.111.41.146 = for particular node
+
+
+GROUPING OF NODES:
+
+Go to vim inventory.ini make db with set of ip, app with set of ip. and ping it using group names.
+
+
+*ansible -i inventory.ini -m shell -a "sudo ls /etc/" all
+* ansible -i inventory.ini -m shell -a "echo hello" all
+* ansible -i inventory.ini --list-hosts nodes   (group of ips in ini)
+
+Managing files:
+
+$ansible -i inventory.ini hosts -m ansible.builtin.copy -a "src=/etc/hosts dest=/tmp/hosts" === This command is used to copy the files from ansible managing node to control nodes.
+
+*ansible -i inventory.ini hosts -m ansible.builtin.copy -a "src=/home/ansiblepilot/practice.txt dest=/home/ubuntu/practice.txt" 
+*ansible -i inventory.ini ubuntu@ip -m ansible.builtin.copy -a "src=/home/ansiblepilot/v dest=/home/ubuntu/v"  
+
+
+
+* ansible -i inventory.ini all -m ansible.builtin.file -a "dest=/home/ubuntu/practice.txt mode=600"  == To change the permissions
+
+ansible webservers -m ansible.builtin.file -a "path=/srv/foo/b.txt mode=0600 owner=mdehaan group=mdehaan"
+
+ansible -i inventory.ini all -m ansible.builtin.file -a "dest=/home/ubuntu/practice.txt mode=600 owner=ubuntu group=ubuntu"
+ansible -i inventory.ini hosts -m ansible.builtin.file -a "path=/home/ubuntu/prac.txt mode=0600 group=akhil owner=akhil" -b ( b is sudo)
+
+
+ansible -i inventory.ini all -m ansible.builtin.file -a "path=/home/ubuntu/v mode=0600 owner=ubuntu group=ubuntu"
+TO CREATE DIRECTRIES AND PERMISSSIONS
+
+$ ansible webservers -m ansible.builtin.file -a "dest=/path/to/c mode=755 owner=mdehaan group=mdehaan state=directory"  
+ansible -i inventory.ini all -m ansible.builtin.file -a "dest=/home/ubuntu/ mode=755 owner=ubuntu group=ubuntu state=directory"
+
+
+TO DELETE DIRECTORIES:
+As well as delete directories (recursively) and delete files:
+
+
+ansible webservers -m ansible.builtin.file -a "dest=/path/to/c state=absent"
+ansible -i inventory.ini all -m ansible.builtin.file -a "dest=/home/ubuntu/Akhil state=absent"
+
+
+
+Refer: https://docs.ansible.com/ansible/latest/command_guide/intro_adhoc.html#id5
+
+
+
+
+ cp /mnt/c/Users/N.AKHIL\ PRABHU/Downloads/ansible-user.pem ~/.ssh/
+
+
+ssh-copy-id -f "-o IdentityFile " ubuntu@<INSTANCE-PUBLIC-IP>

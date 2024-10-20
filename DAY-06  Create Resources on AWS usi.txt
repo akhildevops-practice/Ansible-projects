@@ -1,0 +1,167 @@
+DAY-06  Create Resources on AWS using Ansible | Ansible Variables Demo | Ansible Vault Demo
+
+* pip install boto3
+* ansible-galaxy collection install amazon.aws
+Create an ec2 directory
+mkdir ec2
+cd ec2
+create ce2_create.yaml, inventory.ini, vault.pass, group_vars
+vim ec2_create.yaml
+
++++++++++++++++++++++++++++++
+---
+- hosts: localhost
+  connection: local
+  roles:
+     - ec2
++++++++++++++++++++++++++++++++
+
+ansible-galaxy role init ec2
+cd ec2/ - change the directory into the role
+vim tasks/main.yaml
+
++++++++++++++++++++++++++++++
+
+# tasks file for ec2
+  - name: start an instance with a public IP address
+    amazon.aws.ec2_instance:
+      name: "ansible-instance"
+      # key_name: "prod-ssh-key"
+      # vpc_subnet_id: subnet-013744e41e8088axx
+      instance_type: t2.micro
+      security_group: default
+      region: ap-south-1
+      aws_access_key: "{{ec2_access_key}}"  # From vault as defined
+      aws_secret_key: "{{ec2_secret_key}}"  # From vault as defined
+      network:
+        assign_public_ip: true
+      image_id: ami-0ad21ae1d0696ad58
+
+cd ..
+
+create a vault password:
+openssl rand -base64 2048 > vault.pass
+
+Add your AWS credentials using the below vault command
+ansible-vault create group_vars/all/pass.yml --vault-password-file vault.pass
+
+Here a file will be opened specify the aceesskey and secret key created for the root user.
+ec2_access_key: *****************************
+ec2_secret_key: *****************************    
+
+* cd /home/ansiblepilot/ec2
+* ansible-playbook -I inventory.ini ec2_create.yaml --vault-password-file vault.pass
+
+
+VARIBALE:
+# tasks file for ec2
+  - name: start an instance with a public IP address
+    amazon.aws.ec2_instance:
+      name: "ansible-instance"
+      # key_name: "prod-ssh-key"
+      # vpc_subnet_id: subnet-013744e41e8088axx
+      instance_type: "{{t2.micro}}"
+      security_group: default
+      region: ap-south-1
+      aws_access_key: "{{ec2_access_key}}"  # From vault as defined
+      aws_secret_key: "{{ec2_secret_key}}"  # From vault as defined
+      network:
+        assign_public_ip: true
+      image_id: ami-0ad21ae1d0696ad58
+** go to defaults/main.yaml
+type: t2.micro
+
+ ansible-playbook -I inventory.ini ec2_create.yaml --vault-password-file vault.pass
+Results the same.
+ 
+w have total of 21 precendece locations to store variables, we can also do in vars. Vars has highest precendence than defaults. If we have t2.micro in defaults & t2.mwdium in vars, vars will be overridden.
+
+
+
+
+
+
+
+
+Certainly! Here are some scenario-based interview questions and answers tailored for a DevOps intern position, focusing on the Ansible playbook and role setup you described:
+
+### Scenario-Based Interview Questions and Answers
+
+#### 1. **Why did you choose to use Ansible Vault in this setup?**
+
+**Answer:**
+Ansible Vault is used to securely manage sensitive information, such as AWS credentials, by encrypting them. In this setup, Ansible Vault is utilized to protect the AWS access key and secret key. This ensures that sensitive information is not exposed in plaintext within configuration files or version control. Using Vault helps to maintain security best practices by encrypting credentials and ensuring they are handled securely throughout the automation process.
+
+#### 2. **Explain the role of the `amazon.aws.ec2_instance` module in your playbook.**
+
+**Answer:**
+The `amazon.aws.ec2_instance` module in the playbook is responsible for managing EC2 instances in AWS. It is used to create, update, or terminate EC2 instances based on the provided parameters. In the provided playbook, this module is used to start an EC2 instance with a specified name, instance type, security group, and other configuration details. It also manages network settings such as assigning a public IP address and specifies the AMI (Amazon Machine Image) to be used for the instance.
+
+#### 3. **What is the purpose of the `region` parameter in the `amazon.aws.ec2_instance` module?**
+
+**Answer:**
+The `region` parameter specifies the AWS region where the EC2 instance should be created. AWS regions are geographical locations that host AWS resources. By setting the `region` parameter, you ensure that the EC2 instance is launched in the correct region according to your deployment needs. This can affect the latency, availability, and cost of the resources.
+
+#### 4. **How do variable precedence levels affect your playbook?**
+
+**Answer:**
+Ansible has a specific order of precedence for variables, which determines which value is used when multiple sources define the same variable. In the case of your playbook:
+- Variables defined in `vars` have higher precedence than those in `defaults`. 
+- If a variable is defined in both `vars` and `defaults`, the value from `vars` will override the value from `defaults`.
+
+This means that if `t2.micro` is defined in `defaults/main.yml` and `t2.medium` is defined in `vars`, the `vars` value (`t2.medium`) will be used during playbook execution.
+
+#### 5. **What would happen if you omitted the `aws_access_key` and `aws_secret_key` parameters from the `amazon.aws.ec2_instance` module?**
+
+**Answer:**
+If you omit the `aws_access_key` and `aws_secret_key` parameters, Ansible will use the AWS credentials available in the environment or through the default AWS credential provider chain. This includes credentials configured in `~/.aws/credentials` or IAM roles assigned to the instance if running from an AWS EC2 instance. If no valid credentials are available through these methods, the playbook will fail with an authentication error.
+
+#### 6. **Why did you specify `connection: local` in your `ec2_create.yaml` playbook?**
+
+**Answer:**
+The `connection: local` directive tells Ansible to execute the tasks locally on the machine where Ansible is run, rather than on remote hosts. This is particularly useful when managing resources like AWS EC2 instances that are external to the control node. By using `connection: local`, you ensure that the playbook interacts with the AWS API directly from the control node, rather than attempting to connect to a remote host.
+
+#### 7. **Describe the process of handling and securing sensitive information using Ansible Vault.**
+
+**Answer:**
+Ansible Vault provides a mechanism for encrypting sensitive data within Ansible projects. Here’s the process:
+1. **Create a Vault Password**: Generate a secure password for encrypting and decrypting data.
+2. **Encrypt Files**: Use the `ansible-vault` command to create or edit files containing sensitive information. The contents are encrypted using the vault password.
+3. **Decrypt Files**: When needed, the encrypted files can be decrypted for viewing or editing using the same vault password.
+4. **Use in Playbooks**: Refer to the encrypted files in playbooks and provide the vault password file during playbook execution to allow Ansible to decrypt the data on-the-fly.
+
+In this setup, the AWS credentials are stored in an encrypted file (`group_vars/all/pass.yml`) and protected by a vault password file (`vault.pass`). This ensures that sensitive information is not exposed in plaintext.
+
+#### 8. **What is the significance of using `openssl rand -base64 2048 > vault.pass` to generate a vault password?**
+
+**Answer:**
+The command `openssl rand -base64 2048 > vault.pass` generates a random and secure password of 2048 bits, encoded in base64. This method ensures that the vault password is sufficiently complex and resistant to guessing or brute-force attacks. Using a strong, randomly generated password enhances the security of the encrypted files managed by Ansible Vault.
+
+#### 9. **If you need to update the AMI ID in your `ec2_create.yaml` file, how would you handle this change efficiently?**
+
+**Answer:**
+To update the AMI ID efficiently:
+1. **Modify the Variable**: If the AMI ID is defined as a variable (e.g., in `defaults/main.yml` or `vars`), update it in the appropriate variable file. This approach centralizes the change and makes it easier to manage.
+2. **Direct Update**: Alternatively, you can directly update the `image_id` parameter in the `tasks/main.yml` file if the AMI ID is not stored as a variable.
+3. **Testing**: After updating the AMI ID, test the playbook in a staging environment to ensure that the change works as expected before applying it to production.
+
+By following these steps, you can manage updates efficiently and ensure that your playbooks reflect the latest configurations.
+
+### Summary
+
+These questions cover various aspects of working with Ansible roles, Vault, and AWS management through Ansible. They focus on understanding the rationale behind certain choices, the implications of variable precedence, and the best practices for managing sensitive information, which are crucial for a DevOps intern role.
+
+
+ansible-project/
+├── ec2_create.yaml             # Your Ansible playbook
+├── inventory.ini               # Inventory file
+├── vault.pass                  # Vault password file (generated by OpenSSL)
+├── roles/
+│   └── ec2/
+│       ├── tasks/
+│       │   └── main.yaml       # EC2 creation tasks
+├── group_vars/
+│   └── all/
+│       └── pass.yml            # Encrypted vault file for AWS keys
+
+
