@@ -146,7 +146,7 @@ Create a repo in github
 *  git push -u origin main
 *  git branch
 *  git push -u origin master
-*  git remote set-url origin https://akhilprabhu20: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@github.com/akhildevops-practice/ansible-playbook-apache.git
+*  git remote set-url origin https://akhilprabhu20:**********************************@github.com/akhildevops-practice/ansible-playbook-apache.git
 *  git push -u origin master
 Open ansible-galaxy and got to api's copy the token
  ansible-galaxy import akhilprabhu20 /akhildevops-practice/ansible-playbook-apache --token ***********************
